@@ -132,3 +132,104 @@ export async function getBreadcrumbs(
 
   return crumbs;
 }
+
+// --- Lógica de Mover ---
+
+/**
+ * Busca todas as pastas para popular o select de "Mover Para".
+ * Retorna uma lista plana.
+ */
+export async function getAllFolders() {
+  return await prisma.fileSystemItem.findMany({
+    where: { type: FileSystemItemType.FOLDER },
+    select: { id: true, name: true, parentId: true },
+    orderBy: { name: 'asc' }
+  });
+}
+
+/**
+ * Move um item para outra pasta com validações de segurança.
+ */
+export async function moveItem(
+  itemId: string,
+  targetParentId: string | null
+) {
+  try {
+    // 🔥 NORMALIZAÇÃO CRÍTICA
+    const normalizedTargetParentId =
+      !targetParentId || targetParentId === 'null'
+        ? null
+        : targetParentId;
+
+    // 1. Buscar item
+    const item = await prisma.fileSystemItem.findUnique({
+      where: { id: itemId },
+    });
+
+    if (!item) {
+      return { success: false, error: 'Item não encontrado.' };
+    }
+
+    // 2. Mesma pasta
+    if (item.parentId === normalizedTargetParentId) {
+      return { success: false, error: 'O item já está nesta pasta.' };
+    }
+
+    // 3. Prevenir loop (pasta dentro dela mesma)
+    if (
+      item.type === FileSystemItemType.FOLDER &&
+      normalizedTargetParentId
+    ) {
+      let currentId: string | null = normalizedTargetParentId;
+
+      while (currentId) {
+        if (currentId === itemId) {
+          return {
+            success: false,
+            error: 'Não é possível mover uma pasta para dentro dela mesma.',
+          };
+        }
+
+        const result: { parentId: string | null } | null =
+        await prisma.fileSystemItem.findUnique({
+            where: { id: currentId },
+            select: { parentId: true },
+        });
+
+        currentId = result?.parentId ?? null;
+
+      }
+    }
+
+    // 4. Conflito de nomes
+    const conflict = await prisma.fileSystemItem.findFirst({
+      where: {
+        parentId: normalizedTargetParentId,
+        name: item.name,
+        type: item.type,
+        NOT: { id: itemId },
+      },
+    });
+
+    if (conflict) {
+      return {
+        success: false,
+        error: `Já existe um item chamado "${item.name}" na pasta de destino.`,
+      };
+    }
+
+    // 5. Atualizar
+    await prisma.fileSystemItem.update({
+      where: { id: itemId },
+      data: { parentId: normalizedTargetParentId },
+    });
+
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: 'Erro interno ao mover item.' };
+  }
+}
+
+
