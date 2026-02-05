@@ -1,6 +1,6 @@
 import { getItems, getBreadcrumbs } from './actions';
 import Explorer from './components/Explorer';
-import { HardDrive } from 'lucide-react'; // Ícone para o logo
+import { HardDrive } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,6 @@ export default async function Home({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // 🔥 Lógica intacta
   const resolvedSearchParams = await searchParams;
 
   const folderId =
@@ -17,8 +16,14 @@ export default async function Home({
       ? resolvedSearchParams.folderId
       : null;
 
+  // 🔥 ATUALIZADO: Captura o termo de busca "q"
+  const query = 
+    typeof resolvedSearchParams.q === 'string'
+      ? resolvedSearchParams.q
+      : undefined;
+
   const [items, breadcrumbs] = await Promise.all([
-    getItems(folderId),
+    getItems(folderId, query), // Passamos a query para a busca
     getBreadcrumbs(folderId),
   ]);
 

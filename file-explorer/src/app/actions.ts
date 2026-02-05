@@ -35,13 +35,28 @@ async function getRecursiveSize(
 /* Actions                             */
 /* ---------------------------------- */
 
-export async function getItems(parentId: string | null) {
+// 🔥 ATUALIZADO: Aceita parâmetro query
+export async function getItems(parentId: string | null, query?: string) {
   console.log(
-    `🔍 Buscando itens da pasta: ${parentId ?? 'RAIZ (null)'}`
+    `🔍 Buscando itens. Pasta: ${parentId ?? 'RAIZ'}, Query: ${query ?? 'Nenhuma'}`
   );
 
+  const whereClause: any = {};
+
+  if (query && query.length > 0) {
+    // Modo Busca: Filtra pelo nome (insensível a maiúsculas) e ignora parentId (busca global)
+    whereClause.name = {
+      contains: query,
+      // Nota: mode: 'insensitive' funciona no Postgres/MongoDB. 
+      // No SQLite padrão, o LIKE já é case-insensitive para ASCII, mas vamos garantir.
+    };
+  } else {
+    // Modo Navegação Normal: Filtra pela pasta atual
+    whereClause.parentId = parentId;
+  }
+
   const items = await prisma.fileSystemItem.findMany({
-    where: { parentId },
+    where: whereClause,
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
   });
 
@@ -135,10 +150,6 @@ export async function getBreadcrumbs(
 
 // --- Lógica de Mover ---
 
-/**
- * Busca todas as pastas para popular o select de "Mover Para".
- * Retorna uma lista plana.
- */
 export async function getAllFolders() {
   return await prisma.fileSystemItem.findMany({
     where: { type: FileSystemItemType.FOLDER },
@@ -147,21 +158,16 @@ export async function getAllFolders() {
   });
 }
 
-/**
- * Move um item para outra pasta com validações de segurança.
- */
 export async function moveItem(
   itemId: string,
   targetParentId: string | null
 ) {
   try {
-    // 🔥 NORMALIZAÇÃO CRÍTICA
     const normalizedTargetParentId =
       !targetParentId || targetParentId === 'null'
         ? null
         : targetParentId;
 
-    // 1. Buscar item
     const item = await prisma.fileSystemItem.findUnique({
       where: { id: itemId },
     });
@@ -170,12 +176,10 @@ export async function moveItem(
       return { success: false, error: 'Item não encontrado.' };
     }
 
-    // 2. Mesma pasta
     if (item.parentId === normalizedTargetParentId) {
       return { success: false, error: 'O item já está nesta pasta.' };
     }
 
-    // 3. Prevenir loop (pasta dentro dela mesma)
     if (
       item.type === FileSystemItemType.FOLDER &&
       normalizedTargetParentId
@@ -197,11 +201,9 @@ export async function moveItem(
         });
 
         currentId = result?.parentId ?? null;
-
       }
     }
 
-    // 4. Conflito de nomes
     const conflict = await prisma.fileSystemItem.findFirst({
       where: {
         parentId: normalizedTargetParentId,
@@ -218,7 +220,6 @@ export async function moveItem(
       };
     }
 
-    // 5. Atualizar
     await prisma.fileSystemItem.update({
       where: { id: itemId },
       data: { parentId: normalizedTargetParentId },
@@ -231,5 +232,3 @@ export async function moveItem(
     return { success: false, error: 'Erro interno ao mover item.' };
   }
 }
-
-
