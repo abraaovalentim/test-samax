@@ -1,5 +1,6 @@
 import { getItems, getBreadcrumbs } from './actions';
 import Explorer from './components/Explorer';
+import { HardDrive } from 'lucide-react'; // Ícone para o logo
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,7 @@ export default async function Home({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // 🔥 NEXT 16: searchParams é Promise
+  // 🔥 Lógica intacta
   const resolvedSearchParams = await searchParams;
 
   const folderId =
@@ -22,12 +23,17 @@ export default async function Home({
   ]);
 
   return (
-    <main className="min-h-screen bg-gray-100 py-10 px-4">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          File Manager System
-        </h1>
-        <p className="text-gray-500">Avaliação Técnica - MVP</p>
+    <main className="min-h-screen bg-slate-50 py-12 px-4 font-sans text-slate-900">
+      <div className="max-w-5xl mx-auto mb-8 flex flex-col items-center">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-200">
+            <HardDrive className="text-white w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">
+            Drive Manager
+          </h1>
+        </div>
+        <p className="text-slate-500 font-medium">Avaliação Técnica • MVP</p>
       </div>
 
       <Explorer
