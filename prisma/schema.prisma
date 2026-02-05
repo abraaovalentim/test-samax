@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum FileSystemItemType {
+  FILE
+  FOLDER
+}
+
+model FileSystemItem {
+  id        String              @id @default(uuid())
+  name      String
+  type      FileSystemItemType
+  size      Int                 @default(0) // bytes (pastas = 0 no banco)
+  parentId  String?
+  parent    FileSystemItem?     @relation("FolderContent", fields: [parentId], references: [id], onDelete: Cascade)
+  children  FileSystemItem[]    @relation("FolderContent")
+  createdAt DateTime            @default(now())
+
+  // impede nomes duplicados na mesma pasta
+  @@unique([name, parentId])
+}
+
